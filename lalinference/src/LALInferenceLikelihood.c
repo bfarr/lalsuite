@@ -92,6 +92,33 @@ static int get_calib_spline(LALInferenceVariables *vars, const char *ifoname, RE
   return(XLAL_SUCCESS);
 }
 
+static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs, REAL8Vector **amps, REAL8Vector **phases);
+static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs, REAL8Vector **amps, REAL8Vector **phases)
+{
+  UINT4 npts = LALInferenceGetUINT4Variable(vars, "spsig_npts");
+  char ampname[VARNAME_MAX];
+  char phasename[VARNAME_MAX];
+  char freqname[VARNAME_MAX];
+  if(!*logfreqs) *logfreqs = XLALCreateREAL8Vector(npts);
+  if(!*amps) *amps = XLALCreateREAL8Vector(npts);
+  if(!*phases) *phases = XLALCreateREAL8Vector(npts);
+  assert((*logfreqs)->length==npts);
+  assert((*amps)->length==npts);
+  assert((*phases)->length==npts);
+
+  for(UINT4 i=0;i<npts;i++)
+  {
+    snprintf(freqname, VARNAME_MAX, "spsig_logfreq_%i", i);
+    snprintf(ampname, VARNAME_MAX, "spsig_amp_%i", i);
+    snprintf(phasename, VARNAME_MAX, "spsig_phase_%i", i);
+
+    (*logfreqs)->data[i] = LALInferenceGetREAL8Variable(vars, freqname);
+    (*amps)->data[i] =  LALInferenceGetREAL8Variable(vars, ampname);
+    (*phases)->data[i] = LALInferenceGetREAL8Variable(vars, phasename);
+  }
+  return(XLAL_SUCCESS);
+}
+
 void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 {
     char help[]="\
@@ -349,6 +376,8 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double amp_prefactor=1.0;
 
   COMPLEX16FrequencySeries *calFactor = NULL;
+  COMPLEX16FrequencySeries *sigFactor = NULL;
+  COMPLEX16 sigF = 0.0;
   COMPLEX16 calF = 0.0;
 
   REAL8Vector *logfreqs = NULL;
@@ -356,6 +385,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   REAL8Vector *phases = NULL;
 
   UINT4 spcal_active = 0;
+  UINT4 spsig_active = 0;
   REAL8 calamp=0.0;
   REAL8 calpha=0.0;
   REAL8 cos_calpha=cos(calpha);
@@ -365,6 +395,9 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
   /* ROQ likelihood stuff */
   REAL8 d_inner_h=0.0;
 
+  if (LALInferenceCheckVariable(currentParams, "spsig_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spsig_active"))) {
+    spsig_active = 1;
+  }
 
   if (LALInferenceCheckVariable(currentParams, "spcal_active") && (*(UINT4 *)LALInferenceGetVariable(currentParams, "spcal_active"))) {
     spcal_active = 1;
@@ -642,6 +675,42 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         }
       }
 
+        /* Spline signal stuff if necessary */
+        /*spline*/
+        if (spsig_active) {
+          logfreqs = NULL;
+          amps = NULL;
+          phases = NULL;
+
+        /* get_signal_spline creates and fills the logfreqs, amps, phases arrays */
+        get_signal_spline(currentParams, &logfreqs, &amps, &phases);
+        if (model->roq_flag) {
+            fprintf(stderr,"ERROR: cannot use ROQ likelihood and spline signal marginalization together. Exiting...\n");
+            exit(1);
+            /*
+            LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
+                model->roq->frequencyNodesLinear,
+                &(model->roq->calFactorLinear),
+                model->roq->frequencyNodesQuadratic,
+                &(model->roq->calFactorQuadratic));
+            */
+            }
+
+	  else{
+	    if (sigFactor == NULL) {
+	      sigFactor = XLALCreateCOMPLEX16FrequencySeries("signal spline factors",
+                       &(dataPtr->freqData->epoch),
+                       0, dataPtr->freqData->deltaF,
+                       &lalDimensionlessUnit,
+                       dataPtr->freqData->data->length);
+        }
+        LALInferenceSplineCalibrationFactor(logfreqs, amps, phases, sigFactor);
+	}
+        if(logfreqs) XLALDestroyREAL8Vector(logfreqs);
+        if(amps) XLALDestroyREAL8Vector(amps);
+        if(phases) XLALDestroyREAL8Vector(phases);
+    }
+
         /* Template is now in model->timeFreqhPlus and hCross */
 
         /* Calibration stuff if necessary */
@@ -886,6 +955,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
       /* Do time shifting */
       template = plainTemplate * (re + I*im);
 
+      if (spsig_active) {
+          sigF = sigFactor->data->data[i];
+          template = template*sigF;
+      }
+
       if (spcal_active) {
           calF = calFactor->data->data[i];
           template = template*calF;
@@ -993,6 +1067,12 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
     sprintf(varname,"%s_cplx_snr_arg",dataPtr->name);
     LALInferenceAddREAL8Variable(currentParams,varname,cplx_snr_phase,LALINFERENCE_PARAM_OUTPUT);
+
+   /* Clean up signal spline if necessary */
+    if (!(sigFactor == NULL)) {
+      XLALDestroyCOMPLEX16FrequencySeries(sigFactor);
+      sigFactor = NULL;
+    }
 
    /* Clean up calibration if necessary */
     if (!(calFactor == NULL)) {

@@ -617,6 +617,97 @@ void LALInferenceInitCalibrationVariables(LALInferenceRunState *runState, LALInf
   }
 }
 
+
+void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInferenceVariables *currentParams) {
+  ProcessParamsTable *ppt = NULL;
+  UINT4 spline_on = 1;
+  if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--enable-spline-signal"))){
+    /* Use spline to marginalize*/
+    UINT4 npts = 5; /* Number of spline nodes, log-distributed for now between fmin and fmax. */
+    REAL8 ampUncertaintyPrior = 0.1; /* 10% amplitude */
+    REAL8 phaseUncertaintyPrior = 5*M_PI/180.0; /* 5 degrees phase */
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine, "--spsig-nodes"))) {
+      npts = atoi(ppt->value);
+      if (npts < 3) { /* Cannot do spline with fewer than 3 points! */
+	fprintf(stderr, "ERROR: given '--spsig-nodes %d', but cannot spline with fewer than 3\n", npts);
+	exit(1);
+      }
+    }
+
+    LALInferenceAddVariable(currentParams, "spsig_active", &spline_on, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(currentParams, "spsig_npts", &npts, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+  UINT4 i;
+
+  char freqVarName[VARNAME_MAX];
+  char ampVarName[VARNAME_MAX];
+  char phaseVarName[VARNAME_MAX];
+
+  REAL8 fMin = runState->data->fLow;
+  REAL8 fMax = runState->data->fHigh;
+  REAL8 logFMin = log(fMin);
+  REAL8 logFMax = log(fMax);
+  REAL8 dLogF = (logFMax - logFMin)/(npts-1);
+
+  struct spcal_envelope *env=NULL;
+
+  if( (ppt=LALInferenceGetProcParamVal(runState->commandLine, "--spsig-envelope")))
+      env = initCalibrationEnvelope(ppt->value);
+  else
+  {
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine,  "--spsig-amp-uncertainty"))) {
+        ampUncertaintyPrior = atof(ppt->value);
+    }
+    else{
+        fprintf(stderr,"Error, missing --spsig-amp-uncertainty or --spsig-envelope\n");
+        exit(1);
+    }
+
+    if ((ppt = LALInferenceGetProcParamVal(runState->commandLine,  "--spsig-phase-uncertainty"))) {
+        phaseUncertaintyPrior = M_PI/180.0*atof(ppt->value); /* CL arg in degrees, variable in radians */
+    }
+    else{
+        fprintf(stderr,"Error, missing --spsig-phase-uncertainty or --spsig-envelope\n");
+        exit(1);
+    }
+  }
+  /* Now add each spline node */
+  for(i=0;i<npts;i++)
+  {
+          snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
+          snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
+          snprintf(phaseVarName, VARNAME_MAX, "spsig_phase_%i", i);
+          REAL8 amp_std=ampUncertaintyPrior,amp_mean=0.0;
+          REAL8 phase_std=phaseUncertaintyPrior,phase_mean=0.0;
+          REAL8 logFreq = logFMin + i*dLogF;
+          LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
+          if(env)
+          {
+                  amp_std = gsl_spline_eval(env->amp_std, logFreq, NULL);
+                  amp_mean = gsl_spline_eval(env->amp_median, logFreq, NULL);
+                  phase_std = gsl_spline_eval(env->phase_std, logFreq, NULL);
+                  phase_mean = gsl_spline_eval(env->phase_std, logFreq, NULL);
+          }
+
+          /* Fix the first point so that all other deviations are relative to that frequency */
+          if (i==0) {
+              LALInferenceAddREAL8Variable(currentParams, ampVarName, 0, LALINFERENCE_PARAM_FIXED);
+              LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_FIXED);
+          } else {
+              LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_LINEAR);
+              LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_LINEAR);
+          }
+  } /* End loop over spline nodes */
+
+  if(env) destroyCalibrationEnvelope(env);
+  } /* End case of spline signal */
+
+  else{
+    /* No signal marginalization asked. Just exit */
+    return;
+  }
+}
+
 void LALInferenceRegisterGaussianVariableREAL8(LALInferenceRunState *state, LALInferenceVariables *var, const char name[VARNAME_MAX], REAL8 startval, REAL8 mean, REAL8 stdev, LALInferenceParamVaryType varytype)
 {
   char meanopt[VARNAME_MAX+8];
@@ -1212,6 +1303,9 @@ LALInferenceModel *LALInferenceInitCBCModel(LALInferenceRunState *state) {
 
   /* Handle, if present, requests for calibration parameters. */
   LALInferenceInitCalibrationVariables(state, model->params);
+
+  /* Handle, if present, requests for signal spline. */
+  LALInferenceInitSpSignalVariables(state, model->params);
 
   //Only add waveform parameters to model if needed
   if(signal_flag)
