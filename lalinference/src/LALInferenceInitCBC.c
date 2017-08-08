@@ -677,8 +677,8 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
   REAL8 dist_to_ref_freq = INFINITY;
   UINT4 i_ref = 0;
   for(i=0;i<npts;i++) {
-      REAL8 freq_dist = ref_freq - exp(logFMin + i*dLogF);
-    if (freq_dist > 0 && freq_dist < dist_to_ref_freq) {
+      REAL8 freq_dist = fabs(exp(logFMin + i*dLogF) - ref_freq);
+    if (freq_dist < dist_to_ref_freq) {
         dist_to_ref_freq = freq_dist;
         i_ref = i;
     }
@@ -703,7 +703,7 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
           }
 
           /* Fix the first point so that all other deviations are relative to that frequency */
-          if (i==i_ref || i==i_ref+1) {
+          if (i==i_ref) {
               LALInferenceAddREAL8Variable(currentParams, ampVarName, 0, LALINFERENCE_PARAM_FIXED);
               LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_FIXED);
           } else {
