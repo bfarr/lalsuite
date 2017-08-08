@@ -671,6 +671,19 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
         exit(1);
     }
   }
+
+  /* Find the closest node to 100Hz and fix it */
+  REAL8 ref_freq = 100.0;
+  REAL8 dist_to_ref_freq = INFINITY;
+  UINT4 i_ref = 0;
+  for(i=0;i<npts;i++) {
+      REAL8 freq_dist = abs(exp(logFMin + i*dLogF) - ref_freq);
+    if (freq_dist < dist_to_ref_freq) {
+        dist_to_ref_freq = freq_dist;
+        i_ref = i;
+    }
+  }
+
   /* Now add each spline node */
   for(i=0;i<npts;i++)
   {
@@ -690,7 +703,7 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
           }
 
           /* Fix the first point so that all other deviations are relative to that frequency */
-          if (i==0) {
+          if (i==i_ref) {
               LALInferenceAddREAL8Variable(currentParams, ampVarName, 0, LALINFERENCE_PARAM_FIXED);
               LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_FIXED);
           } else {
