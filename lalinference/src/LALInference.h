@@ -714,8 +714,10 @@ tagLALInferenceROQModel
   COMPLEX16FrequencySeries *hctildeQuadratic;
 
   COMPLEX16Sequence *calFactorLinear;
+  COMPLEX16Sequence *sigFactorLinear;
 
   COMPLEX16Sequence *calFactorQuadratic;
+  COMPLEX16Sequence *sigFactorQuadratic;
 
   REAL8Sequence  * frequencyNodesLinear; /** empirical frequency nodes for the likelihood. NOTE: needs to be stored from data read from command line */
   REAL8Sequence * frequencyNodesQuadratic;

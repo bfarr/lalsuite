@@ -685,15 +685,11 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         /* get_signal_spline creates and fills the logfreqs, amps, phases arrays */
         get_signal_spline(currentParams, &logfreqs, &amps, &phases);
         if (model->roq_flag) {
-            fprintf(stderr,"ERROR: cannot use ROQ likelihood and spline signal marginalization together. Exiting...\n");
-            exit(1);
-            /*
             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
                 model->roq->frequencyNodesLinear,
-                &(model->roq->calFactorLinear),
+                &(model->roq->sigFactorLinear),
                 model->roq->frequencyNodesQuadratic,
-                &(model->roq->calFactorQuadratic));
-            */
+                &(model->roq->sigFactorQuadratic));
             }
 
 	  else{
@@ -835,11 +831,16 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 	double complex weight_iii;
 
-	if (spcal_active){
+	if (spcal_active || spsig_active){
 
 	    for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
 
-			complex double template_EI = model->roq->calFactorLinear->data[iii] * (dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii] );
+			complex double template_EI = dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii];
+            if (spcal_active)
+                template_EI *= model->roq->calFactorLinear->data[iii];
+
+            if (spsig_active)
+                template_EI *= model->roq->sigFactorLinear->data[iii];
 
 			weight_iii = gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_real_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_real_weight_linear) + I*gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_imag_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_imag_weight_linear);
 
@@ -848,7 +849,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
 
-			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj( model->roq->calFactorQuadratic->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) * ( model->roq->calFactorQuadratic->data[jjj] * (model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross) ) );
+            complex double temp =  model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross;
+            if (spcal_active)
+                temp *= model->roq->calFactorQuadratic->data[jjj];
+
+            if (spsig_active)
+                temp *= model->roq->sigFactorQuadratic->data[jjj];
+			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(temp) * temp );
 		}
 	}
 
