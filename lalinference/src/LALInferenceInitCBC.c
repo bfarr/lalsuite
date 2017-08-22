@@ -677,8 +677,8 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
   REAL8 dist_to_ref_freq = INFINITY;
   UINT4 i_ref = 0;
   for(i=0;i<npts;i++) {
-      REAL8 freq_dist = ref_freq - exp(logFMin + i*dLogF);
-    if (freq_dist > 0 && freq_dist < dist_to_ref_freq) {
+      REAL8 freq_dist = fabs(exp(logFMin + i*dLogF) - ref_freq);
+    if (freq_dist < dist_to_ref_freq) {
         dist_to_ref_freq = freq_dist;
         i_ref = i;
     }
@@ -702,10 +702,13 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
                   phase_mean = gsl_spline_eval(env->phase_std, logFreq, NULL);
           }
 
-          /* Fix the first point so that all other deviations are relative to that frequency */
-          if (i==i_ref || i==i_ref+1) {
+          /* Fix the reference point so that all other deviations in
+	     amplitude are relative to that frequency; since the
+	     spline model for the phase already has a derivative in
+	     it, we don't need to fix it. */
+          if (i==i_ref) {
               LALInferenceAddREAL8Variable(currentParams, ampVarName, 0, LALINFERENCE_PARAM_FIXED);
-              LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_FIXED);
+              LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_LINEAR);
           } else {
               LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_LINEAR);
               LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_LINEAR);

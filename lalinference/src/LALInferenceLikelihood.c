@@ -704,7 +704,7 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
                        &lalDimensionlessUnit,
                        dataPtr->freqData->data->length);
         }
-        LALInferenceSplineCalibrationFactor(logfreqs, amps, phases, sigFactor);
+        LALInferenceSplineSignalFactor(logfreqs, amps, phases, sigFactor);
 	}
         if(logfreqs) XLALDestroyREAL8Vector(logfreqs);
         if(amps) XLALDestroyREAL8Vector(amps);
