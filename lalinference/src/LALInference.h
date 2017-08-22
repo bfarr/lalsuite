@@ -357,6 +357,21 @@ int LALInferenceSplineCalibrationFactor(REAL8Vector *freqs,
 					REAL8Vector *deltaPhases,
 					COMPLEX16FrequencySeries *calFactor);
 
+/** Computes the spline factor for the signal spline model.  In the
+    signal spline model, the amplitude and phase adjustment is shared
+    (i.e. common-mode) across all IFOs.  The amplitude adjustment is
+    the same as in the calibration spline model, but the phase
+    offset's derivative is set by the spline
+    \f[
+      \frac{\mathrm{d} \Psi}{\mathrm{d} \log f} = \mathrm{Spline}
+    \f]
+
+ */
+int LALInferenceSplineSignalFactor(REAL8Vector *freqs,
+				   REAL8Vector *deltaAmps,
+				   REAL8Vector *deltaPhases,
+				   COMPLEX16FrequencySeries *calFactor);
+
  /** Modified version of LALInferenceSplineCalibrationFactor to compute the 
  *	calibration factors for the specific frequency nodes used for 
  *	Reduced Order Quadrature likelihoods.
