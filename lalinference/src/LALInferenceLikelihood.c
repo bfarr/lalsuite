@@ -96,6 +96,7 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
 static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs, REAL8Vector **amps, REAL8Vector **phases)
 {
   UINT4 npts = LALInferenceGetUINT4Variable(vars, "spsig_npts");
+  UINT4 i;
   char ampname[VARNAME_MAX];
   char phasename[VARNAME_MAX];
   char freqname[VARNAME_MAX];
@@ -106,7 +107,9 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
   assert((*amps)->length==npts);
   assert((*phases)->length==npts);
 
-  for(UINT4 i=0;i<npts;i++)
+  REAL8 amp_sum = 0;
+  REAL8 phase_sum = 0;
+  for(i=1;i<npts;i++)
   {
     snprintf(freqname, VARNAME_MAX, "spsig_logfreq_%i", i);
     snprintf(ampname, VARNAME_MAX, "spsig_amp_%i", i);
@@ -115,7 +118,25 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
     (*logfreqs)->data[i] = LALInferenceGetREAL8Variable(vars, freqname);
     (*amps)->data[i] =  LALInferenceGetREAL8Variable(vars, ampname);
     (*phases)->data[i] = LALInferenceGetREAL8Variable(vars, phasename);
+
+    amp_sum += (*amps)->data[i];
+    phase_sum += (*phases)->data[i];
   }
+  REAL8 ref_pt_amp = -amp_sum;
+  REAL8 ref_pt_phase = -phase_sum;
+
+  i = 0;
+  snprintf(freqname, VARNAME_MAX, "spsig_logfreq_%i", i);
+  snprintf(ampname, VARNAME_MAX, "spsig_amp_%i", i);
+  snprintf(phasename, VARNAME_MAX, "spsig_phase_%i", i);
+
+  (*logfreqs)->data[i] = LALInferenceGetREAL8Variable(vars, freqname);
+  (*amps)->data[i] = ref_pt_amp;
+  (*phases)->data[i] = ref_pt_phase;
+
+  LALInferenceSetVariable(vars, ampname, &ref_pt_amp);
+  LALInferenceSetVariable(vars, phasename, &ref_pt_phase);
+
   return(XLAL_SUCCESS);
 }
 

@@ -1184,7 +1184,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   /* Check boundaries for signal model parameters */
   for(item=params->head;item;item=item->next)
   {
-    if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
+    if((item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT) && !LALInferenceCheckGaussianPrior(priorParams, item->name))
       continue;
     else if (LALInferenceCheckMinMaxPrior(priorParams, item->name))
     {

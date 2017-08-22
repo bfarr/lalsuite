@@ -672,27 +672,35 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
     }
   }
 
-  /* Find the closest node to 100Hz and fix it */
-  REAL8 ref_freq = 100.0;
-  REAL8 dist_to_ref_freq = INFINITY;
-  UINT4 i_ref = 0;
-  for(i=0;i<npts;i++) {
-      REAL8 freq_dist = ref_freq - exp(logFMin + i*dLogF);
-    if (freq_dist > 0 && freq_dist < dist_to_ref_freq) {
-        dist_to_ref_freq = freq_dist;
-        i_ref = i;
-    }
-  }
-
   /* Now add each spline node */
-  for(i=0;i<npts;i++)
+  /* The first will be used to make the sum zero */
+  i = 0;
+  snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
+  snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
+  snprintf(phaseVarName, VARNAME_MAX, "spsig_phase_%i", i);
+  REAL8 amp_std=ampUncertaintyPrior,amp_mean=0.0;
+  REAL8 phase_std=phaseUncertaintyPrior,phase_mean=0.0;
+  REAL8 logFreq = logFMin + i*dLogF;
+  LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
+  if(env)
+  {
+          amp_std = gsl_spline_eval(env->amp_std, logFreq, NULL);
+          amp_mean = gsl_spline_eval(env->amp_median, logFreq, NULL);
+          phase_std = gsl_spline_eval(env->phase_std, logFreq, NULL);
+          phase_mean = gsl_spline_eval(env->phase_std, logFreq, NULL);
+  }
+  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_OUTPUT);
+  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_OUTPUT);
+  for(i=1;i<npts;i++)
   {
           snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
           snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
           snprintf(phaseVarName, VARNAME_MAX, "spsig_phase_%i", i);
-          REAL8 amp_std=ampUncertaintyPrior,amp_mean=0.0;
-          REAL8 phase_std=phaseUncertaintyPrior,phase_mean=0.0;
-          REAL8 logFreq = logFMin + i*dLogF;
+          amp_std=ampUncertaintyPrior;
+          amp_mean=0.0;
+          phase_std=phaseUncertaintyPrior;
+          phase_mean=0.0;
+          logFreq = logFMin + i*dLogF;
           LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
           if(env)
           {
@@ -703,13 +711,8 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
           }
 
           /* Fix the first point so that all other deviations are relative to that frequency */
-          if (i==i_ref || i==i_ref+1) {
-              LALInferenceAddREAL8Variable(currentParams, ampVarName, 0, LALINFERENCE_PARAM_FIXED);
-              LALInferenceAddREAL8Variable(currentParams, phaseVarName, 0, LALINFERENCE_PARAM_FIXED);
-          } else {
-              LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_LINEAR);
-              LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_LINEAR);
-          }
+          LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_LINEAR);
+          LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_LINEAR);
   } /* End loop over spline nodes */
 
   if(env) destroyCalibrationEnvelope(env);
