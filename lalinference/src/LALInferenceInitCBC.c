@@ -674,24 +674,13 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
 
   /* Now add each spline node */
   /* The first will be used to make the sum zero */
-  i = 0;
-  snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
-  snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
-  snprintf(phaseVarName, VARNAME_MAX, "spsig_phase_%i", i);
+  snprintf(ampVarName, VARNAME_MAX, "spsig_total_amp");
+  snprintf(phaseVarName, VARNAME_MAX, "spsig_total_phase");
   REAL8 amp_std=ampUncertaintyPrior,amp_mean=0.0;
   REAL8 phase_std=phaseUncertaintyPrior,phase_mean=0.0;
-  REAL8 logFreq = logFMin + i*dLogF;
-  LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
-  if(env)
-  {
-          amp_std = gsl_spline_eval(env->amp_std, logFreq, NULL);
-          amp_mean = gsl_spline_eval(env->amp_median, logFreq, NULL);
-          phase_std = gsl_spline_eval(env->phase_std, logFreq, NULL);
-          phase_mean = gsl_spline_eval(env->phase_std, logFreq, NULL);
-  }
   LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_OUTPUT);
   LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_OUTPUT);
-  for(i=1;i<npts;i++)
+  for(i=0;i<npts;i++)
   {
           snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
           snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
@@ -700,7 +689,7 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
           amp_mean=0.0;
           phase_std=phaseUncertaintyPrior;
           phase_mean=0.0;
-          logFreq = logFMin + i*dLogF;
+          REAL8 logFreq = logFMin + i*dLogF;
           LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
           if(env)
           {
