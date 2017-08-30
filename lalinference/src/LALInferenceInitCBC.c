@@ -676,19 +676,19 @@ void LALInferenceInitSpSignalVariables(LALInferenceRunState *runState, LALInfere
   /* The first will be used to make the sum zero */
   snprintf(ampVarName, VARNAME_MAX, "spsig_total_amp");
   snprintf(phaseVarName, VARNAME_MAX, "spsig_total_phase");
-  REAL8 amp_std=ampUncertaintyPrior,amp_mean=0.0;
-  REAL8 phase_std=phaseUncertaintyPrior,phase_mean=0.0;
-  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, amp_mean, amp_std, LALINFERENCE_PARAM_OUTPUT);
-  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, phase_mean, phase_std, LALINFERENCE_PARAM_OUTPUT);
+  REAL8 total_amp_std=ampUncertaintyPrior,total_amp_mean=0.0;
+  REAL8 total_phase_std=phaseUncertaintyPrior,total_phase_mean=0.0;
+  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, ampVarName, 0, total_amp_mean, total_amp_std, LALINFERENCE_PARAM_OUTPUT);
+  LALInferenceRegisterGaussianVariableREAL8(runState, currentParams, phaseVarName, 0, total_phase_mean, total_phase_std, LALINFERENCE_PARAM_OUTPUT);
   for(i=0;i<npts;i++)
   {
           snprintf(freqVarName, VARNAME_MAX, "spsig_logfreq_%i",i);
           snprintf(ampVarName, VARNAME_MAX, "spsig_amp_%i", i);
           snprintf(phaseVarName, VARNAME_MAX, "spsig_phase_%i", i);
-          amp_std=ampUncertaintyPrior;
-          amp_mean=0.0;
-          phase_std=phaseUncertaintyPrior;
-          phase_mean=0.0;
+          REAL8 amp_std=ampUncertaintyPrior;
+          REAL8 amp_mean=0.0;
+          REAL8 phase_std=phaseUncertaintyPrior;
+          REAL8 phase_mean=0.0;
           REAL8 logFreq = logFMin + i*dLogF;
           LALInferenceAddREAL8Variable(currentParams,freqVarName,logFreq,LALINFERENCE_PARAM_FIXED);
           if(env)

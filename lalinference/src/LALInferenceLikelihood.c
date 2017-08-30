@@ -96,7 +96,6 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
 static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs, REAL8Vector **amps, REAL8Vector **phases)
 {
   UINT4 npts = LALInferenceGetUINT4Variable(vars, "spsig_npts");
-  UINT4 i;
   char ampname[VARNAME_MAX];
   char phasename[VARNAME_MAX];
   char freqname[VARNAME_MAX];
@@ -109,7 +108,7 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
 
   REAL8 amp_sum = 0;
   REAL8 phase_sum = 0;
-  for(i=0;i<npts;i++)
+  for(UINT4 i=0;i<npts;i++)
   {
     snprintf(freqname, VARNAME_MAX, "spsig_logfreq_%i", i);
     snprintf(ampname, VARNAME_MAX, "spsig_amp_%i", i);
@@ -126,8 +125,8 @@ static int get_signal_spline(LALInferenceVariables *vars, REAL8Vector **logfreqs
   snprintf(ampname, VARNAME_MAX, "spsig_total_amp");
   snprintf(phasename, VARNAME_MAX, "spsig_total_phase");
 
-  LALInferenceSetVariable(vars, ampname, &amp_sum);
-  LALInferenceSetVariable(vars, phasename, &phase_sum);
+  LALInferenceSetREAL8Variable(vars, ampname, amp_sum);
+  LALInferenceSetREAL8Variable(vars, phasename, phase_sum);
 
   return(XLAL_SUCCESS);
 }
@@ -699,10 +698,10 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
         get_signal_spline(currentParams, &logfreqs, &amps, &phases);
         if (model->roq_flag) {
             LALInferenceSplineCalibrationFactorROQ(logfreqs, amps, phases,
-                model->roq->frequencyNodesLinear,
-                &(model->roq->sigFactorLinear),
-                model->roq->frequencyNodesQuadratic,
-                &(model->roq->sigFactorQuadratic));
+            model->roq->frequencyNodesLinear,
+            &(model->roq->sigFactorLinear),
+            model->roq->frequencyNodesQuadratic,
+            &(model->roq->sigFactorQuadratic));
             }
 
 	  else{
@@ -844,52 +843,28 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
 	double complex weight_iii;
 
-	if (spcal_active || spsig_active){
+    for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
+        complex double template_EI = dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii];
+        if (spcal_active)
+            template_EI *= model->roq->calFactorLinear->data[iii];
 
-	    for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
+        if (spsig_active)
+            template_EI *= model->roq->sigFactorLinear->data[iii];
 
-			complex double template_EI = dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii];
-            if (spcal_active)
-                template_EI *= model->roq->calFactorLinear->data[iii];
+        weight_iii = gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_real_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_real_weight_linear) + I*gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_imag_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_imag_weight_linear);
 
-            if (spsig_active)
-                template_EI *= model->roq->sigFactorLinear->data[iii];
+        this_ifo_d_inner_h += ( weight_iii * ( conj( template_EI ) ) );
+    }
 
-			weight_iii = gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_real_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_real_weight_linear) + I*gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_imag_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_imag_weight_linear);
+    for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
+        complex double temp =  model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross;
+        if (spcal_active)
+            temp *= model->roq->calFactorQuadratic->data[jjj];
 
-			this_ifo_d_inner_h += ( weight_iii * ( conj( template_EI ) ) );
-		}
-
-		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
-
-            complex double temp =  model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross;
-            if (spcal_active)
-                temp *= model->roq->calFactorQuadratic->data[jjj];
-
-            if (spsig_active)
-                temp *= model->roq->sigFactorQuadratic->data[jjj];
-			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(temp) * temp );
-		}
-	}
-
-	else{
-
-		for(unsigned int iii=0; iii < model->roq->frequencyNodesLinear->length; iii++){
-
-			complex double template_EI = dataPtr->fPlus*model->roq->hptildeLinear->data->data[iii] + dataPtr->fCross*model->roq->hctildeLinear->data->data[iii];
-
-			weight_iii = gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_real_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_real_weight_linear) + I*gsl_spline_eval (dataPtr->roq->weights_linear[iii].spline_imag_weight_linear, timeshift, dataPtr->roq->weights_linear[iii].acc_imag_weight_linear);
-
-			this_ifo_d_inner_h += weight_iii*conj(template_EI) ;
-
-		}
-
-		for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
-			complex double template_EI = model->roq->hptildeQuadratic->data->data[jjj]*Fplus + model->roq->hctildeQuadratic->data->data[jjj]*Fcross;
-
-			this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(template_EI) * (template_EI) );
-					}
-	}
+        if (spsig_active)
+            temp *= model->roq->sigFactorQuadratic->data[jjj];
+        this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(temp) * temp );
+    }
 
 	d_inner_h += creal(this_ifo_d_inner_h);
 	S += this_ifo_s;

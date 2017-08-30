@@ -2776,6 +2776,11 @@ void LALInferenceSetupROQmodel(LALInferenceModel *model, ProcessParamsTable *com
           model->roq->calFactorLinear = XLALCreateCOMPLEX16Sequence(model->roq->frequencyNodesLinear->length);
           model->roq->calFactorQuadratic = XLALCreateCOMPLEX16Sequence(model->roq->frequencyNodesQuadratic->length);
 
+	  if(LALInferenceGetProcParamVal(commandLine,"--enable-spline-signal")){
+          model->roq->sigFactorLinear = XLALCreateCOMPLEX16Sequence(model->roq->frequencyNodesLinear->length);
+          model->roq->sigFactorQuadratic = XLALCreateCOMPLEX16Sequence(model->roq->frequencyNodesQuadratic->length);
+      }
+
 	  if(LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear")){
 	    ppt=LALInferenceGetProcParamVal(commandLine,"--roqnodesLinear");
 
