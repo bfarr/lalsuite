@@ -857,13 +857,13 @@ static REAL8 LALInferenceFusedFreqDomainLogLikelihood(LALInferenceVariables *cur
     }
 
     for(unsigned int jjj=0; jjj < model->roq->frequencyNodesQuadratic->length; jjj++){
-        complex double temp =  model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross;
+        complex double template_EI = model->roq->hptildeQuadratic->data->data[jjj]*dataPtr->fPlus + model->roq->hctildeQuadratic->data->data[jjj]*dataPtr->fCross;
         if (spcal_active)
-            temp *= model->roq->calFactorQuadratic->data[jjj];
+            template_EI *= model->roq->calFactorQuadratic->data[jjj];
 
         if (spsig_active)
-            temp *= model->roq->sigFactorQuadratic->data[jjj];
-        this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(temp) * temp );
+            template_EI *= model->roq->sigFactorQuadratic->data[jjj];
+        this_ifo_s += dataPtr->roq->weightsQuadratic[jjj] * creal( conj(template_EI) * template_EI );
     }
 
 	d_inner_h += creal(this_ifo_d_inner_h);
